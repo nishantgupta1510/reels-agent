@@ -1,0 +1,60 @@
+name: Check Approvals and Post
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"  # every 10 minutes — free on GitHub Actions
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install requests google-api-python-client google-auth-oauthlib
+
+      - name: Check Telegram for approvals
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python check_approvals.py
+
+      - name: Commit updated offset (so we don't reprocess old button presses)
+        run: |
+          git config user.name "reels-agent-bot"
+          git config user.email "actions@github.com"
+          git add output/telegram_offset.txt || true
+          git diff --cached --quiet || git commit -m "chore: update telegram offset"
+          git push || true
+
+      - name: Restore YouTube token
+        run: echo '${{ secrets.YOUTUBE_TOKEN_JSON }}' > youtube_token.json
+
+      - name: Get public URL for approved video
+        id: url
+        run: |
+          draft_id=$(cat output/approved_draft_id.txt)
+          if [ -n "$draft_id" ]; then
+            url="https://github.com/${{ github.repository }}/releases/download/$draft_id/final.mp4"
+            echo "video_url=$url" >> "$GITHUB_OUTPUT"
+            echo "draft_id=$draft_id" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post to YouTube + Instagram
+        if: steps.url.outputs.draft_id != ''
+        env:
+          IG_BUSINESS_ACCOUNT_ID: ${{ secrets.IG_BUSINESS_ACCOUNT_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          RELEASE_VIDEO_URL: ${{ steps.url.outputs.video_url }}
+        run: python post_social.py
+
+      - name: Clean up published release
+        if: steps.url.outputs.draft_id != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release delete ${{ steps.url.outputs.draft_id }} --yes --cleanup-tag

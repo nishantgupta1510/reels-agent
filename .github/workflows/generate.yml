@@ -1,0 +1,61 @@
+name: Generate Daily Draft
+
+on:
+  schedule:
+    - cron: "0 9 * * *"  # 9am UTC daily — adjust to your posting time
+  workflow_dispatch: {}    # lets you trigger manually to test, for free
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate script
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL }}
+          NICHE: ${{ secrets.NICHE }}
+          VIDEO_LENGTH_SECONDS: "30"
+        run: python generate_script.py
+
+      - name: Generate voiceover
+        run: python generate_voice.py
+
+      - name: Fetch visuals
+        env:
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+        run: python fetch_visuals.py
+
+      - name: Assemble video
+        run: python assemble_video.py
+
+      - name: Create draft ID
+        id: draft
+        run: echo "id=draft-$(date +%Y%m%d-%H%M%S)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload draft as GitHub Release (free storage between workflow runs)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create ${{ steps.draft.outputs.id }} \
+            output/final.mp4 output/script.json \
+            --title "${{ steps.draft.outputs.id }}" \
+            --notes "Pending review draft"
+
+      - name: Send to Telegram for review
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python telegram_review.py ${{ steps.draft.outputs.id }}
