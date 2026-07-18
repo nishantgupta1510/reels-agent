@@ -21,6 +21,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install "httpx<0.28"
+          pip install "Pillow<10"
           pip install -r requirements.txt
 
       - name: Generate script
