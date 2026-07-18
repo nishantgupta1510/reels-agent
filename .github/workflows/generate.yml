@@ -33,6 +33,11 @@ jobs:
         run: python generate_script.py
 
       - name: Generate voiceover
+        env:
+          TTS_PROVIDER: ${{ secrets.TTS_PROVIDER }}
+          TTS_VOICE: ${{ secrets.TTS_VOICE }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVEN_VOICE_ID: ${{ secrets.ELEVEN_VOICE_ID }}
         run: python generate_voice.py
 
       - name: Fetch visuals
