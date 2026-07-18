@@ -9,6 +9,7 @@ Output: output/final.mp4
 """
 import glob
 import json
+import math
 import os
 
 from moviepy.editor import (
@@ -50,15 +51,23 @@ def build_background(duration: float):
         if remaining <= 0:
             break
         raw = VideoFileClip(path)
+        if raw.duration <= 0:
+            raw.close()
+            continue
         seg_len = min(per_clip, raw.duration, remaining)
         seg = crop_to_vertical(raw.subclip(0, seg_len))
         segments.append(seg)
         remaining -= seg_len
 
+    if not segments:
+        raise RuntimeError("All downloaded clips were empty or unreadable")
+
     bg = concatenate_videoclips(segments, method="compose")
     if bg.duration < duration:
-        # loop the last segment if we came up short
-        bg = concatenate_videoclips([bg, bg], method="compose").subclip(0, duration)
+        # A search can return only one short clip. Repeat the assembled
+        # background enough times to cover the complete voiceover.
+        repeats = math.ceil(duration / bg.duration)
+        bg = concatenate_videoclips([bg] * repeats, method="compose").subclip(0, duration)
     return bg.subclip(0, duration)
 
 

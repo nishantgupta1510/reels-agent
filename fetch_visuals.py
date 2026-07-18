@@ -30,16 +30,23 @@ def fetch_clip(keyword: str, out_path: str, min_duration=4) -> bool:
     for video in results:
         if video["duration"] < min_duration:
             continue
-        # pick the highest-res vertical file available
-        files = sorted(
-            video["video_files"], key=lambda f: f.get("height", 0), reverse=True
-        )
+        files = video.get("video_files", [])
         portrait_files = [f for f in files if f.get("height", 0) > f.get("width", 1)]
-        chosen = (portrait_files or files)[0]
+        if not portrait_files:
+            continue
 
-        video_data = requests.get(chosen["link"], timeout=60).content
+        # Prefer a vertical file at or below 1080p. Selecting Pexels' largest
+        # source can exhaust a hosted runner while MoviePy decodes the video.
+        hd_or_smaller = [f for f in portrait_files if f.get("height", 0) <= 1920]
+        candidates = hd_or_smaller or portrait_files
+        chosen = min(candidates, key=lambda f: abs(f.get("height", 0) - 1920))
+
+        download = requests.get(chosen["link"], timeout=120, stream=True)
+        download.raise_for_status()
         with open(out_path, "wb") as f:
-            f.write(video_data)
+            for chunk in download.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    f.write(chunk)
         return True
 
     return False

@@ -26,25 +26,33 @@ jobs:
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick
 
+      - name: Patch ImageMagick policy for MoviePy TextClip
+        run: sudo sed -i 's/rights="none" pattern="@\*"/rights="read|write" pattern="@*"/' /etc/ImageMagick-6/policy.xml
+
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          pip list | grep -iE 'httpx|Pillow|openai|moviepy'
 
       - name: Generate script
         env:
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
-          LLM_MODEL: ${{ secrets.LLM_MODEL }}
-          NICHE: ${{ secrets.NICHE }}
-          VIDEO_LENGTH_SECONDS: "30"
+          LLM_BASE_URL: ${{ vars.LLM_BASE_URL }}
+          LLM_MODEL: ${{ vars.LLM_MODEL }}
+          NICHE: ${{ vars.NICHE }}
+          VIDEO_LENGTH_SECONDS: ${{ vars.VIDEO_LENGTH_SECONDS || '30' }}
         run: python generate_script.py
 
       - name: Generate voiceover
         env:
-          TTS_PROVIDER: ${{ secrets.TTS_PROVIDER }}
-          TTS_VOICE: ${{ secrets.TTS_VOICE }}
+          TTS_PROVIDER: ${{ vars.TTS_PROVIDER }}
+          TTS_VOICE: ${{ vars.TTS_VOICE }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           ELEVEN_VOICE_ID: ${{ secrets.ELEVEN_VOICE_ID }}
         run: python generate_voice.py
+
+      - name: Verify voiceover was generated
+        run: test -s output/voice.mp3 || { echo "::error::voice.mp3 is empty — TTS failed"; exit 1; }
 
       - name: Fetch visuals
         env:
@@ -54,11 +62,16 @@ jobs:
       - name: Assemble video
         run: python assemble_video.py
 
+      - name: Create compressed preview
+        run: ffmpeg -i output/final.mp4 -vf scale=540:960 -crf 28 output/preview.mp4
+
       - name: Create draft ID
+        if: success()
         id: draft
         run: echo "id=draft-$(date -u +%Y%m%d-%H%M%S)" >> "$GITHUB_OUTPUT"
 
       - name: Save draft for approval
+        if: success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -69,7 +82,17 @@ jobs:
             --notes "Private temporary storage for a pending Telegram review."
 
       - name: Send the draft to Telegram
+        if: success()
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python telegram_review.py ${{ steps.draft.outputs.id }}
+
+      - name: Notify Telegram of generation failure
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          WORKFLOW_STATUS: failure
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: python notify_telegram.py

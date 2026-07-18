@@ -2,7 +2,7 @@ name: Post Approved YouTube Short
 
 on:
   schedule:
-    - cron: "3,13,23,33,43,53 * * * *"
+    - cron: "3,33 * * * *"
   workflow_dispatch: {}
 
 permissions:
@@ -23,9 +23,11 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements-check.txt
 
       - name: Check Telegram for an approval
+        id: check
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -41,7 +43,7 @@ jobs:
           git push
 
       - name: Restore YouTube authorization
-        if: hashFiles('output/approved/final.mp4') != ''
+        if: steps.check.outputs.approved == 'true'
         env:
           YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
         run: |
@@ -49,21 +51,26 @@ jobs:
           printf '%s' "$YOUTUBE_TOKEN_JSON" > youtube_token.json
 
       - name: Post approved video to YouTube
-        if: hashFiles('output/approved/final.mp4') != ''
+        if: steps.check.outputs.approved == 'true'
         env:
           VIDEO_PATH: output/approved/final.mp4
           SCRIPT_PATH: output/approved/script.json
           YOUTUBE_PRIVACY_STATUS: ${{ vars.YOUTUBE_PRIVACY_STATUS || 'unlisted' }}
+          POST_INSTAGRAM: ${{ vars.POST_INSTAGRAM || 'false' }}
+          IG_BUSINESS_ACCOUNT_ID: ${{ secrets.IG_BUSINESS_ACCOUNT_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          RELEASE_VIDEO_URL: ${{ github.server_url }}/${{ github.repository }}/releases/download/${{ steps.check.outputs.draft_id }}/final.mp4
+          DRAFT_ID: ${{ steps.check.outputs.draft_id }}
         run: python post_social.py
 
       - name: Delete successfully posted draft
-        if: success() && hashFiles('output/approved/final.mp4') != ''
+        if: success() && steps.check.outputs.approved == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release delete "$(cat output/approved_draft_id.txt)" --yes --cleanup-tag
+        run: gh release delete "${{ steps.check.outputs.draft_id }}" --yes --cleanup-tag
 
       - name: Notify Telegram of posting result
-        if: always() && hashFiles('output/approved/final.mp4') != ''
+        if: always() && steps.check.outputs.approved == 'true'
         continue-on-error: true
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

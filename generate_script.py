@@ -16,6 +16,8 @@ Output: output/script.json
 """
 import os
 import json
+import re
+import time
 from openai import OpenAI
 from dotenv import load_dotenv
 
@@ -50,32 +52,50 @@ def generate_script(niche: str, seconds: int = 30) -> dict:
     )
     words = int(seconds * 2.5)  # ~150 wpm spoken pace
 
-    resp = client.chat.completions.create(
-        model=os.environ.get("LLM_MODEL", "llama-3.3-70b-versatile"),
-        messages=[
-            {
-                "role": "system",
-                "content": SYSTEM_PROMPT.format(seconds=seconds, words=words),
-            },
-            {
-                "role": "user",
-                "content": f"Niche: {niche}\nGenerate one script for today.",
-            },
-        ],
-        temperature=0.9,
-    )
+    required_keys = {"topic", "hook", "script", "visual_keywords", "caption_title", "hashtags"}
+    last_error = None
+    temperature = 0.9
 
-    raw = resp.choices[0].message.content.strip()
-    # Strip accidental markdown fences if the model adds them
-    if raw.startswith("```"):
-        raw = raw.strip("`")
-        if raw.lower().startswith("json"):
-            raw = raw[4:]
-    data = json.loads(raw)
-    data["hashtags"] = [
-        h if h.startswith("#") else f"#{h}" for h in data.get("hashtags", [])
-    ]
-    return data
+    for attempt in range(3):
+        try:
+            resp = client.chat.completions.create(
+                model=os.environ.get("LLM_MODEL", "llama-3.3-70b-versatile"),
+                messages=[
+                    {
+                        "role": "system",
+                        "content": SYSTEM_PROMPT.format(seconds=seconds, words=words),
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Niche: {niche}\nGenerate one script for today.",
+                    },
+                ],
+                temperature=temperature,
+            )
+
+            raw = resp.choices[0].message.content.strip()
+            # Strip markdown fences carefully
+            raw = re.sub(r'^```\w*\s*', '', raw)
+            raw = re.sub(r'\s*```$', '', raw)
+            
+            data = json.loads(raw)
+            
+            # Schema validation
+            if not required_keys.issubset(data.keys()):
+                raise ValueError(f"Missing keys in JSON: {required_keys - data.keys()}")
+
+            data["hashtags"] = [
+                h if h.startswith("#") else f"#{h}" for h in data.get("hashtags", [])
+            ]
+            return data
+
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"Attempt {attempt + 1} failed: {e}")
+            last_error = e
+            temperature += 0.1  # slightly increase randomness on retry
+            time.sleep(1)
+
+    raise RuntimeError(f"Failed to generate valid script after 3 attempts. Last error: {last_error}")
 
 
 if __name__ == "__main__":

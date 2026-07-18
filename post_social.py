@@ -24,7 +24,16 @@ def get_youtube_client():
     if os.path.exists(TOKEN_PATH):
         creds = Credentials.from_authorized_user_file(TOKEN_PATH, YOUTUBE_SCOPES)
     if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
+        try:
+            creds.refresh(Request())
+        except Exception as e:
+            msg = (
+                "⚠️ YouTube authorization expired or failed. "
+                "Run `python post_social.py` locally to re-authorize, then update "
+                f"the YOUTUBE_TOKEN_JSON secret. Error: {e}"
+            )
+            print(f"::error::{msg}")
+            raise RuntimeError(msg)
     if not creds or not creds.valid:
         # Browser authorization must be completed locally first. GitHub Actions
         # restores the resulting refresh-token JSON from a repository secret.
@@ -74,42 +83,57 @@ def post_instagram(video_path: str, caption: str):
     access_token = os.environ["IG_ACCESS_TOKEN"]
     video_url = os.environ["RELEASE_VIDEO_URL"]  # public URL, passed in by the workflow
 
-    create_resp = requests.post(
-        f"https://graph.facebook.com/v25.0/{ig_user_id}/media",
-        data={
-            "media_type": "REELS",
-            "video_url": video_url,
-            "caption": caption,
-            "access_token": access_token,
-        },
-        timeout=60,
-    )
-    create_resp.raise_for_status()
-    container_id = create_resp.json()["id"]
+    import subprocess
+    draft_id = os.environ.get("DRAFT_ID", "")
 
-    # Poll until the container finishes processing
-    for _ in range(30):
-        status_resp = requests.get(
-            f"https://graph.facebook.com/v25.0/{container_id}",
-            params={"fields": "status_code", "access_token": access_token},
-            timeout=30,
+    # For IG Graph API to work, the video URL must be public.
+    # GitHub Draft Release assets are NOT public. We must publish it temporarily.
+    if draft_id:
+        print("Publishing release temporarily for Instagram Graph API...")
+        subprocess.run(["gh", "release", "edit", draft_id, "--draft=false"], check=True)
+        time.sleep(2) # Give GitHub CDN a moment
+
+    try:
+        create_resp = requests.post(
+            f"https://graph.facebook.com/v25.0/{ig_user_id}/media",
+            data={
+                "media_type": "REELS",
+                "video_url": video_url,
+                "caption": caption,
+                "access_token": access_token,
+            },
+            timeout=60,
         )
-        status = status_resp.json().get("status_code")
-        if status == "FINISHED":
-            break
-        if status in {"ERROR", "EXPIRED"}:
-            raise RuntimeError(f"Instagram processing failed: {status_resp.text}")
-        time.sleep(10)
-    else:
-        raise TimeoutError("Instagram did not finish processing within five minutes")
+        create_resp.raise_for_status()
+        container_id = create_resp.json()["id"]
 
-    publish_resp = requests.post(
-        f"https://graph.facebook.com/v25.0/{ig_user_id}/media_publish",
-        data={"creation_id": container_id, "access_token": access_token},
-        timeout=60,
-    )
-    publish_resp.raise_for_status()
-    print(f"Instagram Reel published: {publish_resp.json()}")
+        # Poll until the container finishes processing
+        for _ in range(30):
+            status_resp = requests.get(
+                f"https://graph.facebook.com/v25.0/{container_id}",
+                params={"fields": "status_code", "access_token": access_token},
+                timeout=30,
+            )
+            status = status_resp.json().get("status_code")
+            if status == "FINISHED":
+                break
+            if status in {"ERROR", "EXPIRED"}:
+                raise RuntimeError(f"Instagram processing failed: {status_resp.text}")
+            time.sleep(10)
+        else:
+            raise TimeoutError("Instagram did not finish processing within five minutes")
+
+        publish_resp = requests.post(
+            f"https://graph.facebook.com/v25.0/{ig_user_id}/media_publish",
+            data={"creation_id": container_id, "access_token": access_token},
+            timeout=60,
+        )
+        publish_resp.raise_for_status()
+        print(f"Instagram Reel published: {publish_resp.json()}")
+    finally:
+        if draft_id:
+            print("Re-drafting release...")
+            subprocess.run(["gh", "release", "edit", draft_id, "--draft=true"], check=False)
 
 
 if __name__ == "__main__":

@@ -12,6 +12,9 @@ import os
 import subprocess
 
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 API = f"https://api.telegram.org/bot{BOT_TOKEN}"
@@ -26,7 +29,6 @@ def get_offset() -> int:
 
 
 def save_offset(offset: int):
-    os.makedirs("output", exist_ok=True)
     with open(OFFSET_FILE, "w") as f:
         f.write(str(offset))
 
@@ -84,7 +86,6 @@ def main():
             if video_ok and meta_ok:
                 approved_draft = draft_id
                 answer_callback(cq["id"], "Approved — uploading to YouTube now!")
-                break
             else:
                 answer_callback(cq["id"], "Couldn't find that draft (maybe already handled).")
         elif action == "reject":
@@ -94,9 +95,11 @@ def main():
     save_offset(offset)
 
     # Signal to the workflow YAML whether a post should happen
-    os.makedirs("output", exist_ok=True)
-    with open("output/approved_draft_id.txt", "w") as f:
-        f.write(approved_draft or "")
+    github_output = os.environ.get("GITHUB_OUTPUT")
+    if github_output:
+        with open(github_output, "a") as f:
+            f.write(f"approved={'true' if approved_draft else 'false'}\n")
+            f.write(f"draft_id={approved_draft or ''}\n")
 
     print(f"Processed {len(updates)} updates. Approved draft: {approved_draft}")
 

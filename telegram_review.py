@@ -27,39 +27,62 @@ API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 def send_for_review(draft_id: str, video_path: str, title: str, hashtags: list):
     caption = f"🎬 *{title}*\n\n{' '.join(hashtags)}\n\nApprove to post this YouTube Short?"
+    
+    reply_markup = json.dumps({
+        "inline_keyboard": [
+            [
+                {"text": "✅ Approve", "callback_data": f"approve:{draft_id}"},
+                {"text": "❌ Reject", "callback_data": f"reject:{draft_id}"},
+            ]
+        ]
+    })
 
-    with open(video_path, "rb") as video_file:
-        resp = requests.post(
-            f"{API}/sendVideo",
-            data={
-                "chat_id": CHAT_ID,
-                "caption": caption,
-                "parse_mode": "Markdown",
-                "reply_markup": json.dumps(
-                    {
-                        "inline_keyboard": [
-                            [
-                                {"text": "✅ Approve", "callback_data": f"approve:{draft_id}"},
-                                {"text": "❌ Reject", "callback_data": f"reject:{draft_id}"},
-                            ]
-                        ]
-                    }
-                ),
-            },
-            files={"video": video_file},
-            timeout=120,
-        )
+    if os.path.exists(video_path):
+        with open(video_path, "rb") as video_file:
+            resp = requests.post(
+                f"{API}/sendVideo",
+                data={
+                    "chat_id": CHAT_ID,
+                    "caption": caption,
+                    "parse_mode": "Markdown",
+                    "reply_markup": reply_markup,
+                },
+                files={"video": video_file},
+                timeout=120,
+            )
+        try:
+            resp.raise_for_status()
+            print(f"Sent draft {draft_id} for review with video.")
+            return
+        except requests.exceptions.HTTPError as e:
+            print(f"Failed to send video, falling back to text. Error: {e}")
+    else:
+        print(f"Video {video_path} not found, sending text-only review.")
+
+    # Fallback to text message
+    resp = requests.post(
+        f"{API}/sendMessage",
+        json={
+            "chat_id": CHAT_ID,
+            "text": caption,
+            "parse_mode": "Markdown",
+            "reply_markup": reply_markup,
+        },
+        timeout=120,
+    )
     resp.raise_for_status()
-    print(f"Sent draft {draft_id} for review.")
+    print(f"Sent draft {draft_id} for review via text.")
 
 
 if __name__ == "__main__":
     draft_id = sys.argv[1]
     with open("output/script.json") as f:
         script_data = json.load(f)
+        
+    preview_path = os.environ.get("PREVIEW_PATH", "output/preview.mp4")
     send_for_review(
         draft_id,
-        "output/final.mp4",
+        preview_path,
         script_data["caption_title"],
         script_data["hashtags"],
     )
