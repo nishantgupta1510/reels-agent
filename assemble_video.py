@@ -14,6 +14,7 @@ import os
 
 from moviepy.editor import (
     AudioFileClip,
+    CompositeAudioClip,
     CompositeVideoClip,
     TextClip,
     VideoFileClip,
@@ -134,7 +135,6 @@ def main():
     music_files = glob.glob("assets/music/*.wav")
     if music_files:
         import random
-        from moviepy.editor import AudioFileClip, CompositeAudioClip
         track = AudioFileClip(random.choice(music_files)).subclip(0, final.duration)
         track = track.volumex(0.12)  # 12% volume
         mixed = CompositeAudioClip([final.audio, track])

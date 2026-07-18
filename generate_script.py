@@ -46,8 +46,8 @@ Output ONLY valid JSON, no markdown fences, no commentary, matching exactly this
 The "script" field is the full voiceover text. It MUST be at least {words} words \
 long — this is non-negotiable. Write at a natural conversational pace of \
 110 words per minute. For a {seconds}-second video, that means {words} words minimum. \
-The intro and outro catchphrases count towards this length.
-cinematic, scene-specific stock-footage search terms (e.g., "maglev train \
+The intro and outro catchphrases count towards this length. \
+"visual_keywords" are cinematic, scene-specific stock-footage search terms (e.g., "maglev train \
 japan aerial", "glowing neon city time lapse") that visually match the \
 script's mood/content — avoid boring generic terms or anything copyrighted."""
 
