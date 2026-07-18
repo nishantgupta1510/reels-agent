@@ -28,7 +28,7 @@ EDGE_VOICE = os.environ.get("TTS_VOICE") or "en-US-GuyNeural"
 
 
 async def synthesize_edge(text: str, out_path: str) -> list:
-    communicate = edge_tts.Communicate(text, EDGE_VOICE, boundary="WordBoundary")
+    communicate = edge_tts.Communicate(text, EDGE_VOICE)
     word_timings = []
 
     with open(out_path, "wb") as audio_file:
