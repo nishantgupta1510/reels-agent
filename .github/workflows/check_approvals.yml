@@ -67,7 +67,7 @@ jobs:
         if: success() && steps.check.outputs.approved == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release delete "${{ steps.check.outputs.draft_id }}" --yes --cleanup-tag
+        run: gh release delete "${{ steps.check.outputs.draft_id }}" --yes
 
       - name: Notify Telegram of posting result
         if: always() && steps.check.outputs.approved == 'true'
