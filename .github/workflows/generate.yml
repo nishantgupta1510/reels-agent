@@ -2,8 +2,12 @@ name: Generate Daily YouTube Draft
 
 on:
   schedule:
-    # 09:17 UTC = 14:47 IST. Avoiding the top of the hour reduces schedule delay.
-    - cron: "17 9 * * *"
+    # 03:23 UTC = 08:53 IST (Morning commute)
+    - cron: "23 3 * * *"
+    # 08:23 UTC = 13:53 IST (Afternoon break)
+    - cron: "23 8 * * *"
+    # 13:23 UTC = 18:53 IST (Evening prime time)
+    - cron: "23 13 * * *"
   workflow_dispatch: {}
 
 permissions:
