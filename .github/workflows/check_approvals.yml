@@ -55,8 +55,8 @@ jobs:
         env:
           VIDEO_PATH: output/approved/final.mp4
           SCRIPT_PATH: output/approved/script.json
-          YOUTUBE_PRIVACY_STATUS: ${{ vars.YOUTUBE_PRIVACY_STATUS || 'unlisted' }}
-          POST_INSTAGRAM: ${{ vars.POST_INSTAGRAM || 'false' }}
+          YOUTUBE_PRIVACY_STATUS: ${{ vars.YOUTUBE_PRIVACY_STATUS || secrets.YOUTUBE_PRIVACY_STATUS || 'unlisted' }}
+          POST_INSTAGRAM: ${{ vars.POST_INSTAGRAM || secrets.POST_INSTAGRAM || 'false' }}
           IG_BUSINESS_ACCOUNT_ID: ${{ secrets.IG_BUSINESS_ACCOUNT_ID }}
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
           RELEASE_VIDEO_URL: ${{ github.server_url }}/${{ github.repository }}/releases/download/${{ steps.check.outputs.draft_id }}/final.mp4
