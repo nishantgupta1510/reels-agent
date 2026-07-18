@@ -134,7 +134,18 @@ def build_captions(word_timings: list, total_duration: float, speed_factor: floa
 
 def main():
     SPEED_FACTOR = 1.15
-    audio = AudioFileClip("output/voice.mp3").fx(vfx.speedx, SPEED_FACTOR)
+    
+    # Use ffmpeg's atempo filter to speed up audio WITHOUT changing the pitch (no chipmunk effect)
+    import subprocess
+    import imageio_ffmpeg
+    ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+    subprocess.run(
+        [ffmpeg_exe, "-i", "output/voice.mp3", "-filter:a", f"atempo={SPEED_FACTOR}", "output/voice_fast.mp3", "-y"],
+        check=True,
+        capture_output=True
+    )
+    
+    audio = AudioFileClip("output/voice_fast.mp3")
     duration = audio.duration
 
     with open("output/word_timings.json") as f:
