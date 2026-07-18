@@ -3,6 +3,9 @@ moviepy==1.0.3
 requests==2.32.3
 python-dotenv==1.0.1
 openai==1.51.0
+# openai 1.51 passes the removed `proxies` argument to httpx 0.28+.
+# Keep the last compatible httpx release until OpenAI is upgraded.
+httpx<0.28
 google-api-python-client==2.149.0
 google-auth-oauthlib==1.2.1
 Pillow==10.4.0
