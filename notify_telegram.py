@@ -35,10 +35,13 @@ def main():
 
     response = requests.post(
         f"https://api.telegram.org/bot{token}/sendMessage",
-        data={"chat_id": chat_id, "text": text, "disable_web_page_preview": True},
+        json={"chat_id": chat_id, "text": text, "disable_web_page_preview": True},
         timeout=20,
     )
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except Exception as e:
+        print(f"Telegram notification failed (non-fatal): {e} — Response: {response.text}")
 
 
 if __name__ == "__main__":
