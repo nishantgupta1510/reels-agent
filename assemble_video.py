@@ -16,9 +16,11 @@ from moviepy.editor import (
     AudioFileClip,
     CompositeAudioClip,
     CompositeVideoClip,
+    ImageClip,
     TextClip,
     VideoFileClip,
     concatenate_videoclips,
+    vfx,
 )
 
 TARGET_W, TARGET_H = 1080, 1920  # 9:16
@@ -76,15 +78,15 @@ def build_background(duration: float):
 FONT_PATH = os.path.join(os.path.dirname(__file__), "fonts", "NotoSansDevanagari-Bold.ttf")
 
 
-def build_captions(word_timings: list, total_duration: float):
+def build_captions(word_timings: list, total_duration: float, speed_factor: float = 1.15):
     """Group words into ~3-word chunks for punchy, readable captions."""
     chunks = []
     chunk_size = 3
     for i in range(0, len(word_timings), chunk_size):
         group = word_timings[i : i + chunk_size]
         text = " ".join(w["word"] for w in group)
-        start = group[0]["start_ms"] / 1000
-        end = (group[-1]["start_ms"] + group[-1]["duration_ms"]) / 1000
+        start = (group[0]["start_ms"] / 1000) / speed_factor
+        end = ((group[-1]["start_ms"] + group[-1]["duration_ms"]) / 1000) / speed_factor
         chunks.append((text, start, min(end, total_duration)))
 
     caption_clips = []
@@ -117,14 +119,15 @@ def build_captions(word_timings: list, total_duration: float):
 
 
 def main():
-    audio = AudioFileClip("output/voice.mp3")
+    SPEED_FACTOR = 1.15
+    audio = AudioFileClip("output/voice.mp3").fx(vfx.speedx, SPEED_FACTOR)
     duration = audio.duration
 
     with open("output/word_timings.json") as f:
         word_timings = json.load(f)
 
     background = build_background(duration).set_audio(audio)
-    captions = build_captions(word_timings, duration)
+    captions = build_captions(word_timings, duration, speed_factor=SPEED_FACTOR)
 
     final = CompositeVideoClip([background, *captions], size=(TARGET_W, TARGET_H))
     final = final.set_duration(duration)
@@ -136,18 +139,21 @@ def main():
     if music_files:
         import random
         track = AudioFileClip(random.choice(music_files)).subclip(0, final.duration)
-        track = track.volumex(0.12)  # 12% volume
+        track = track.volumex(0.30)  # 30% volume
         mixed = CompositeAudioClip([final.audio, track])
         final = final.set_audio(mixed)
 
     # Add Raaz Brand Watermark
-    logo_txt = (
-        TextClip("Raaz", fontsize=40, color="white", font=FONT_PATH, stroke_color="black", stroke_width=2)
-        .set_position((40, TARGET_H - 120))
-        .set_opacity(0.6)
-        .set_duration(final.duration)
-    )
-    final = CompositeVideoClip([final, logo_txt])
+    logo_path = "assets/logo.png"
+    if os.path.exists(logo_path):
+        logo_clip = (
+            ImageClip(logo_path)
+            .set_duration(final.duration)
+            .resize(width=180)
+            .set_opacity(0.8)
+            .set_position((40, TARGET_H - 140))
+        )
+        final = CompositeVideoClip([final, logo_clip])
 
     final.write_videofile(
         "output/final.mp4",

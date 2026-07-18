@@ -40,16 +40,16 @@ Output ONLY valid JSON, no markdown fences, no commentary, matching exactly this
   "script": string,
   "visual_keywords": [string, string, string, string, string, string, string, string, string, string],
   "caption_title": string,
-  "hashtags": [string, string, string, string, string] // EXACTLY 3 English and 2 proper Devanagari Hindi. NEVER transliterate Hindi into English letters.
+  "hashtags": [string, string, string, string, string] // EXACTLY 5 English-only hashtags (e.g. "#Science", "#Facts"). NEVER use Hindi letters or transliteration.
 }}
 
 The "script" field is the full voiceover text. It MUST be at least {words} words \
 long — this is non-negotiable. Write at a natural conversational pace of \
 110 words per minute. For a {seconds}-second video, that means {words} words minimum. \
 The intro and outro catchphrases count towards this length. \
-"visual_keywords" are cinematic, scene-specific stock-footage search terms (e.g., "maglev train \
-japan aerial", "glowing neon city time lapse") that visually match the \
-script's mood/content — avoid boring generic terms or anything copyrighted."""
+"visual_keywords" MUST be 10 simple, broad, 1-2 word English nouns (e.g., "train", \
+"robot", "city", "space", "technology", "ocean") that Pexels stock video search \
+can easily match — avoid multi-word, abstract, or complex phrases."""
 
 
 def generate_script(niche: str, seconds: int = 30) -> dict:
