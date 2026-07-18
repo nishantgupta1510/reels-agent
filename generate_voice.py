@@ -24,7 +24,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Good default voices — browse more with: `edge-tts --list-voices`
-EDGE_VOICE = os.environ.get("TTS_VOICE", "en-US-GuyNeural")
+EDGE_VOICE = os.environ.get("TTS_VOICE") or "en-US-GuyNeural"
 
 
 async def synthesize_edge(text: str, out_path: str) -> list:
@@ -114,7 +114,7 @@ def main():
     text = script_data["script"]
     os.makedirs("output", exist_ok=True)
 
-    provider = os.environ.get("TTS_PROVIDER", "edge").lower()
+    provider = (os.environ.get("TTS_PROVIDER") or "edge").lower()
     if provider == "elevenlabs":
         word_timings = synthesize_elevenlabs(text, "output/voice.mp3")
     else:

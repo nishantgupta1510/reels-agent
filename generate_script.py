@@ -48,7 +48,7 @@ copyrighted or brand-specific."""
 def generate_script(niche: str, seconds: int = 30) -> dict:
     client = OpenAI(
         api_key=os.environ["LLM_API_KEY"],
-        base_url=os.environ.get("LLM_BASE_URL", "https://api.groq.com/openai/v1"),
+        base_url=os.environ.get("LLM_BASE_URL") or "https://api.groq.com/openai/v1",
     )
     words = int(seconds * 2.5)  # ~150 wpm spoken pace
 
@@ -59,7 +59,7 @@ def generate_script(niche: str, seconds: int = 30) -> dict:
     for attempt in range(3):
         try:
             resp = client.chat.completions.create(
-                model=os.environ.get("LLM_MODEL", "llama-3.3-70b-versatile"),
+                model=os.environ.get("LLM_MODEL") or "llama-3.3-70b-versatile",
                 messages=[
                     {
                         "role": "system",
@@ -99,8 +99,8 @@ def generate_script(niche: str, seconds: int = 30) -> dict:
 
 
 if __name__ == "__main__":
-    niche = os.environ.get("NICHE", "interesting science facts")
-    seconds = int(os.environ.get("VIDEO_LENGTH_SECONDS", 30))
+    niche = os.environ.get("NICHE") or "interesting science facts"
+    seconds = int(os.environ.get("VIDEO_LENGTH_SECONDS") or 30)
 
     result = generate_script(niche, seconds)
 
