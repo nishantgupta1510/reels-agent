@@ -26,8 +26,8 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
     
     # Extract title from message text if available (assumes format 🎬 *Title*\n...)
     title = "your video"
-    if "🎬 *" in message_text:
-        title = message_text.split("🎬 *")[1].split("*")[0]
+    if "🎬 " in message_text:
+        title = message_text.split("🎬 ")[1].split("\n")[0].strip("* ")
         
     # 1. Trigger GitHub Actions via repository_dispatch
     event_type = "telegram_approved" if action == "approve" else "telegram_rejected"

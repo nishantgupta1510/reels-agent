@@ -33,6 +33,10 @@ def main():
                 approved = True
             else:
                 print("Failed to download release assets. Cannot proceed with posting.")
+        elif action == "telegram_rejected":
+            print(f"Draft {draft_id} was rejected. Deleting release...")
+            subprocess.run(["gh", "release", "delete", draft_id, "--yes", "--cleanup-tag"], check=False)
+            print("Deleted.")
     else:
         print("Not triggered by Telegram webhook.")
 
