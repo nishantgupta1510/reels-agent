@@ -129,9 +129,29 @@ def main():
     final = final.set_duration(duration)
 
     os.makedirs("output", exist_ok=True)
+    # Mix Background Music if available
+    import glob
+    music_files = glob.glob("assets/music/*.wav")
+    if music_files:
+        import random
+        from moviepy.editor import AudioFileClip, CompositeAudioClip
+        track = AudioFileClip(random.choice(music_files)).subclip(0, final.duration)
+        track = track.volumex(0.12)  # 12% volume
+        mixed = CompositeAudioClip([final.audio, track])
+        final = final.set_audio(mixed)
+
+    # Add Raaz Brand Watermark
+    logo_txt = (
+        TextClip("Raaz", fontsize=40, color="white", font=FONT_PATH, stroke_color="black", stroke_width=2)
+        .set_position((40, TARGET_H - 120))
+        .set_opacity(0.6)
+        .set_duration(final.duration)
+    )
+    final = CompositeVideoClip([final, logo_txt])
+
     final.write_videofile(
         "output/final.mp4",
-        fps=30,
+        fps=24,
         codec="libx264",
         audio_codec="aac",
         threads=4,

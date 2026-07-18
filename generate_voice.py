@@ -63,7 +63,16 @@ def synthesize_elevenlabs(text: str, out_path: str) -> list:
     resp = requests.post(
         f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/with-timestamps",
         headers={"xi-api-key": api_key, "Content-Type": "application/json"},
-        json={"text": text, "model_id": model_id},
+        json={
+            "text": text,
+            "model_id": model_id,
+            "voice_settings": {
+                "stability": 0.4,
+                "similarity_boost": 0.8,
+                "style": 0.3,
+                "use_speaker_boost": True,
+            },
+        },
         timeout=120,
     )
     resp.raise_for_status()
