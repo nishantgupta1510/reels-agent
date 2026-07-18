@@ -2,9 +2,10 @@
 Stage 6: Approval check (runs every ~10 min via its own cron workflow).
 
 Polls Telegram for button presses since the last check. On Approve, downloads
-the corresponding draft from its GitHub Release and posts it to YouTube +
-Instagram. On Reject, just cleans it up. Prints a shell-friendly summary
-that the workflow YAML uses to decide whether to run the posting step.
+the corresponding draft from its GitHub Release so the workflow can post it
+to YouTube. On Reject, it deletes the draft. The update position is committed
+to .github/telegram_offset.txt by the workflow, so each button press is
+processed once.
 """
 import json
 import os
@@ -14,7 +15,8 @@ import requests
 
 BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 API = f"https://api.telegram.org/bot{BOT_TOKEN}"
-OFFSET_FILE = "output/telegram_offset.txt"
+OFFSET_FILE = ".github/telegram_offset.txt"
+CHAT_ID = str(os.environ["TELEGRAM_CHAT_ID"])
 
 
 def get_offset() -> int:
@@ -57,7 +59,7 @@ def main():
     resp.raise_for_status()
     updates = resp.json().get("result", [])
 
-    actions_taken = []
+    approved_draft = None
 
     for update in updates:
         offset = max(offset, update["update_id"] + 1)
@@ -65,15 +67,24 @@ def main():
         if not cq:
             continue
 
-        action, draft_id = cq["data"].split(":", 1)
+        message_chat_id = str(cq.get("message", {}).get("chat", {}).get("id", ""))
+        if message_chat_id != CHAT_ID:
+            answer_callback(cq["id"], "This approval button is not authorized for this chat.")
+            continue
+
+        try:
+            action, draft_id = cq["data"].split(":", 1)
+        except ValueError:
+            continue
 
         if action == "approve":
             os.makedirs("output/approved", exist_ok=True)
             video_ok = download_release_asset(draft_id, "final.mp4", "output/approved/final.mp4")
             meta_ok = download_release_asset(draft_id, "script.json", "output/approved/script.json")
             if video_ok and meta_ok:
-                actions_taken.append(draft_id)
-                answer_callback(cq["id"], "Approved — posting now!")
+                approved_draft = draft_id
+                answer_callback(cq["id"], "Approved — uploading to YouTube now!")
+                break
             else:
                 answer_callback(cq["id"], "Couldn't find that draft (maybe already handled).")
         elif action == "reject":
@@ -83,10 +94,11 @@ def main():
     save_offset(offset)
 
     # Signal to the workflow YAML whether a post should happen
+    os.makedirs("output", exist_ok=True)
     with open("output/approved_draft_id.txt", "w") as f:
-        f.write(actions_taken[0] if actions_taken else "")
+        f.write(approved_draft or "")
 
-    print(f"Processed {len(updates)} updates. Approved drafts: {actions_taken}")
+    print(f"Processed {len(updates)} updates. Approved draft: {approved_draft}")
 
 
 if __name__ == "__main__":

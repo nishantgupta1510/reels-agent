@@ -1,9 +1,17 @@
-name: Generate Daily Draft
+name: Generate Daily YouTube Draft
 
 on:
   schedule:
-    - cron: "0 9 * * *"  # 9am UTC daily — adjust to your posting time
-  workflow_dispatch: {}    # lets you trigger manually to test, for free
+    # 09:17 UTC = 14:47 IST. Avoiding the top of the hour reduces schedule delay.
+    - cron: "17 9 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-youtube-draft
+  cancel-in-progress: false
 
 jobs:
   generate:
@@ -19,10 +27,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick
 
       - name: Install dependencies
-        run: |
-          pip install "httpx<0.28"
-          pip install "Pillow<10"
-          pip install -r requirements.txt
+        run: pip install -r requirements.txt
 
       - name: Generate script
         env:
@@ -51,18 +56,19 @@ jobs:
 
       - name: Create draft ID
         id: draft
-        run: echo "id=draft-$(date +%Y%m%d-%H%M%S)" >> "$GITHUB_OUTPUT"
+        run: echo "id=draft-$(date -u +%Y%m%d-%H%M%S)" >> "$GITHUB_OUTPUT"
 
-      - name: Upload draft as GitHub Release (free storage between workflow runs)
+      - name: Save draft for approval
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create ${{ steps.draft.outputs.id }} \
             output/final.mp4 output/script.json \
+            --draft \
             --title "${{ steps.draft.outputs.id }}" \
-            --notes "Pending review draft"
+            --notes "Private temporary storage for a pending Telegram review."
 
-      - name: Send to Telegram for review
+      - name: Send the draft to Telegram
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

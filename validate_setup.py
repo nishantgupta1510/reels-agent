@@ -68,7 +68,15 @@ def check_instagram():
         timeout=20,
     )
     raise_with_body(resp)
-    return f"token + account ID valid, linked to @{resp.json().get('username')}"
+    username = resp.json().get("username")
+    if not username:
+        raise RuntimeError(
+            "The configured ID is not readable as an Instagram professional account. "
+            "Set IG_BUSINESS_ACCOUNT_ID to the connected Instagram account ID (not "
+            "the Facebook Page ID) and use an access token with Instagram publishing "
+            "permissions."
+        )
+    return f"token + account ID valid, linked to @{username}"
 
 
 def check_youtube():
@@ -87,7 +95,10 @@ print("Validating credentials...\n")
 check("ElevenLabs", check_elevenlabs)
 check("Pexels", check_pexels)
 check("Telegram", check_telegram)
-check("Instagram", check_instagram)
+if os.environ.get("CHECK_INSTAGRAM", "false").lower() == "true":
+    check("Instagram", check_instagram)
+else:
+    results.append(("Instagram", True, "skipped (YouTube-only mode)"))
 check("YouTube", check_youtube)
 
 print()

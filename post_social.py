@@ -9,6 +9,7 @@ import os
 import time
 
 import requests
+from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
@@ -22,9 +23,16 @@ def get_youtube_client():
     creds = None
     if os.path.exists(TOKEN_PATH):
         creds = Credentials.from_authorized_user_file(TOKEN_PATH, YOUTUBE_SCOPES)
+    if creds and creds.expired and creds.refresh_token:
+        creds.refresh(Request())
     if not creds or not creds.valid:
-        # First-time local auth only — in CI, TOKEN_PATH is restored from a
-        # GitHub Secret set up once during initial local testing.
+        # Browser authorization must be completed locally first. GitHub Actions
+        # restores the resulting refresh-token JSON from a repository secret.
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            raise RuntimeError(
+                "YouTube authorization is unavailable. Create YOUTUBE_TOKEN_JSON "
+                "from a successful local authorization and save it as a GitHub secret."
+            )
         flow = InstalledAppFlow.from_client_secrets_file(
             "client_secret.json", YOUTUBE_SCOPES
         )
@@ -67,7 +75,7 @@ def post_instagram(video_path: str, caption: str):
     video_url = os.environ["RELEASE_VIDEO_URL"]  # public URL, passed in by the workflow
 
     create_resp = requests.post(
-        f"https://graph.facebook.com/v21.0/{ig_user_id}/media",
+        f"https://graph.facebook.com/v25.0/{ig_user_id}/media",
         data={
             "media_type": "REELS",
             "video_url": video_url,
@@ -82,17 +90,21 @@ def post_instagram(video_path: str, caption: str):
     # Poll until the container finishes processing
     for _ in range(30):
         status_resp = requests.get(
-            f"https://graph.facebook.com/v21.0/{container_id}",
+            f"https://graph.facebook.com/v25.0/{container_id}",
             params={"fields": "status_code", "access_token": access_token},
             timeout=30,
         )
         status = status_resp.json().get("status_code")
         if status == "FINISHED":
             break
+        if status in {"ERROR", "EXPIRED"}:
+            raise RuntimeError(f"Instagram processing failed: {status_resp.text}")
         time.sleep(10)
+    else:
+        raise TimeoutError("Instagram did not finish processing within five minutes")
 
     publish_resp = requests.post(
-        f"https://graph.facebook.com/v21.0/{ig_user_id}/media_publish",
+        f"https://graph.facebook.com/v25.0/{ig_user_id}/media_publish",
         data={"creation_id": container_id, "access_token": access_token},
         timeout=60,
     )
@@ -101,15 +113,19 @@ def post_instagram(video_path: str, caption: str):
 
 
 if __name__ == "__main__":
-    with open("output/approved/script.json") as f:
+    video_path = os.environ.get("VIDEO_PATH", "output/final.mp4")
+    script_path = os.environ.get("SCRIPT_PATH", "output/script.json")
+    with open(script_path) as f:
         meta = json.load(f)
 
     description = meta["script"] + "\n\n" + " ".join(meta["hashtags"])
 
     post_youtube(
-        "output/approved/final.mp4",
+        video_path,
         meta["caption_title"],
         description,
         [h.strip("#") for h in meta["hashtags"]],
+        os.environ.get("YOUTUBE_PRIVACY_STATUS", "public"),
     )
-    post_instagram("output/approved/final.mp4", description)
+    if os.environ.get("POST_INSTAGRAM", "false").lower() == "true":
+        post_instagram(video_path, description)

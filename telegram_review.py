@@ -26,7 +26,7 @@ API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 
 def send_for_review(draft_id: str, video_path: str, title: str, hashtags: list):
-    caption = f"🎬 *{title}*\n\n{' '.join(hashtags)}\n\nApprove to post to YouTube + Instagram?"
+    caption = f"🎬 *{title}*\n\n{' '.join(hashtags)}\n\nApprove to post this YouTube Short?"
 
     with open(video_path, "rb") as video_file:
         resp = requests.post(

@@ -1,9 +1,16 @@
-name: Check Approvals and Post
+name: Post Approved YouTube Short
 
 on:
   schedule:
-    - cron: "*/10 * * * *"  # every 10 minutes — free on GitHub Actions
+    - cron: "3,13,23,33,43,53 * * * *"
   workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: telegram-approval-check
+  cancel-in-progress: false
 
 jobs:
   check:
@@ -16,45 +23,52 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install requests google-api-python-client google-auth-oauthlib
+        run: pip install -r requirements.txt
 
-      - name: Check Telegram for approvals
+      - name: Check Telegram for an approval
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python check_approvals.py
 
-      - name: Commit updated offset (so we don't reprocess old button presses)
+      - name: Save Telegram update position
         run: |
           git config user.name "reels-agent-bot"
           git config user.email "actions@github.com"
-          git add output/telegram_offset.txt || true
-          git diff --cached --quiet || git commit -m "chore: update telegram offset"
-          git push || true
+          git add .github/telegram_offset.txt
+          git diff --cached --quiet || git commit -m "chore: save Telegram update position"
+          git push
 
-      - name: Restore YouTube token
-        run: echo '${{ secrets.YOUTUBE_TOKEN_JSON }}' > youtube_token.json
-
-      - name: Get public URL for approved video
-        id: url
-        run: |
-          draft_id=$(cat output/approved_draft_id.txt)
-          if [ -n "$draft_id" ]; then
-            url="https://github.com/${{ github.repository }}/releases/download/$draft_id/final.mp4"
-            echo "video_url=$url" >> "$GITHUB_OUTPUT"
-            echo "draft_id=$draft_id" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Post to YouTube + Instagram
-        if: steps.url.outputs.draft_id != ''
+      - name: Restore YouTube authorization
+        if: hashFiles('output/approved/final.mp4') != ''
         env:
-          IG_BUSINESS_ACCOUNT_ID: ${{ secrets.IG_BUSINESS_ACCOUNT_ID }}
-          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
-          RELEASE_VIDEO_URL: ${{ steps.url.outputs.video_url }}
+          YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
+        run: |
+          test -n "$YOUTUBE_TOKEN_JSON" || { echo "YOUTUBE_TOKEN_JSON secret is not configured."; exit 1; }
+          printf '%s' "$YOUTUBE_TOKEN_JSON" > youtube_token.json
+
+      - name: Post approved video to YouTube
+        if: hashFiles('output/approved/final.mp4') != ''
+        env:
+          VIDEO_PATH: output/approved/final.mp4
+          SCRIPT_PATH: output/approved/script.json
+          YOUTUBE_PRIVACY_STATUS: ${{ vars.YOUTUBE_PRIVACY_STATUS || 'unlisted' }}
         run: python post_social.py
 
-      - name: Clean up published release
-        if: steps.url.outputs.draft_id != ''
+      - name: Delete successfully posted draft
+        if: success() && hashFiles('output/approved/final.mp4') != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release delete ${{ steps.url.outputs.draft_id }} --yes --cleanup-tag
+        run: gh release delete "$(cat output/approved_draft_id.txt)" --yes --cleanup-tag
+
+      - name: Notify Telegram of posting result
+        if: always() && hashFiles('output/approved/final.mp4') != ''
+        continue-on-error: true
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          WORKFLOW_STATUS: ${{ job.status }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PUBLISH: "true"
+        run: python notify_telegram.py
