@@ -1,44 +1,7 @@
-"""
-Stage 6: Approval check (runs every ~10 min via its own cron workflow).
-
-Polls Telegram for button presses since the last check. On Approve, downloads
-the corresponding draft from its GitHub Release so the workflow can post it
-to YouTube. On Reject, it deletes the draft. The update position is committed
-to .github/telegram_offset.txt by the workflow, so each button press is
-processed once.
-"""
-import json
+"""Check approval status from the webhook payload and download the draft if approved."""
 import os
+import sys
 import subprocess
-
-import requests
-from dotenv import load_dotenv
-
-load_dotenv()
-
-BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
-API = f"https://api.telegram.org/bot{BOT_TOKEN}"
-OFFSET_FILE = ".github/telegram_offset.txt"
-CHAT_ID = str(os.environ["TELEGRAM_CHAT_ID"])
-
-
-def get_offset() -> int:
-    if os.path.exists(OFFSET_FILE):
-        return int(open(OFFSET_FILE).read().strip() or 0)
-    return 0
-
-
-def save_offset(offset: int):
-    with open(OFFSET_FILE, "w") as f:
-        f.write(str(offset))
-
-
-def answer_callback(callback_id: str, text: str):
-    requests.post(
-        f"{API}/answerCallbackQuery",
-        json={"callback_query_id": callback_id, "text": text},
-        timeout=20,
-    )
 
 
 def download_release_asset(draft_id: str, asset_name: str, out_path: str) -> bool:
@@ -48,60 +11,34 @@ def download_release_asset(draft_id: str, asset_name: str, out_path: str) -> boo
         capture_output=True,
         text=True,
     )
+    if result.returncode != 0:
+        print(f"Failed to download {asset_name}: {result.stderr}")
     return result.returncode == 0
 
 
-def delete_release(draft_id: str):
-    subprocess.run(["gh", "release", "delete", draft_id, "--yes", "--cleanup-tag"], capture_output=True)
-
-
 def main():
-    offset = get_offset()
-    resp = requests.get(f"{API}/getUpdates", params={"offset": offset, "timeout": 5}, timeout=30)
-    resp.raise_for_status()
-    updates = resp.json().get("result", [])
+    event_name = os.environ.get("GITHUB_EVENT_NAME")
+    action = os.environ.get("DISPATCH_ACTION")
+    draft_id = os.environ.get("DISPATCH_DRAFT_ID")
 
-    approved_draft = None
+    approved = False
 
-    for update in updates:
-        offset = max(offset, update["update_id"] + 1)
-        cq = update.get("callback_query")
-        if not cq:
-            continue
-
-        message_chat_id = str(cq.get("message", {}).get("chat", {}).get("id", ""))
-        if message_chat_id != CHAT_ID:
-            answer_callback(cq["id"], "This approval button is not authorized for this chat.")
-            continue
-
-        try:
-            action, draft_id = cq["data"].split(":", 1)
-        except ValueError:
-            continue
-
-        if action == "approve":
+    if event_name == "repository_dispatch":
+        print(f"Triggered by repository_dispatch. Action: {action}, Draft: {draft_id}")
+        if action == "telegram_approved":
             os.makedirs("output/approved", exist_ok=True)
             video_ok = download_release_asset(draft_id, "final.mp4", "output/approved/final.mp4")
             meta_ok = download_release_asset(draft_id, "script.json", "output/approved/script.json")
             if video_ok and meta_ok:
-                approved_draft = draft_id
-                answer_callback(cq["id"], "Approved — uploading to YouTube now!")
+                approved = True
             else:
-                answer_callback(cq["id"], "Couldn't find that draft (maybe already handled).")
-        elif action == "reject":
-            delete_release(draft_id)
-            answer_callback(cq["id"], "Rejected — discarded.")
+                print("Failed to download release assets. Cannot proceed with posting.")
+    else:
+        print("Not triggered by Telegram webhook.")
 
-    save_offset(offset)
-
-    # Signal to the workflow YAML whether a post should happen
-    github_output = os.environ.get("GITHUB_OUTPUT")
-    if github_output:
-        with open(github_output, "a") as f:
-            f.write(f"approved={'true' if approved_draft else 'false'}\n")
-            f.write(f"draft_id={approved_draft or ''}\n")
-
-    print(f"Processed {len(updates)} updates. Approved draft: {approved_draft}")
+    with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+        f.write(f"approved={'true' if approved else 'false'}\n")
+        f.write(f"draft_id={draft_id or ''}\n")
 
 
 if __name__ == "__main__":

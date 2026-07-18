@@ -72,7 +72,7 @@ def build_background(duration: float):
 
 
 
-FONT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts", "DejaVuSans-Bold.ttf")
+FONT_PATH = os.path.join(os.path.dirname(__file__), "fonts", "NotoSansDevanagari-Bold.ttf")
 
 
 def build_captions(word_timings: list, total_duration: float):

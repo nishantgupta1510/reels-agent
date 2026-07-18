@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: reels-webhook
+    env: python
+    buildCommand: pip install -r webhook/requirements.txt
+    startCommand: uvicorn webhook.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0

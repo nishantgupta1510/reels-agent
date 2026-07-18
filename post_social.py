@@ -144,7 +144,7 @@ if __name__ == "__main__":
 
     description = meta["script"] + "\n\n" + " ".join(meta["hashtags"])
 
-    post_youtube(
+    video_id = post_youtube(
         video_path,
         meta["caption_title"],
         description,
@@ -153,3 +153,8 @@ if __name__ == "__main__":
     )
     if os.environ.get("POST_INSTAGRAM", "false").lower() == "true":
         post_instagram(video_path, description)
+
+    github_output = os.environ.get("GITHUB_OUTPUT")
+    if github_output:
+        with open(github_output, "a") as f:
+            f.write(f"youtube_url=https://youtu.be/{video_id}\n")

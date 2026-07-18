@@ -1,8 +1,8 @@
 name: Post Approved YouTube Short
 
 on:
-  schedule:
-    - cron: "3,33 * * * *"
+  repository_dispatch:
+    types: [telegram_approved, telegram_rejected]
   workflow_dispatch: {}
 
 permissions:
@@ -26,21 +26,14 @@ jobs:
         run: |
           pip install -r requirements-check.txt
 
-      - name: Check Telegram for an approval
+      - name: Check approval and download draft
         id: check
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_ACTION: ${{ github.event.action }}
+          DISPATCH_DRAFT_ID: ${{ github.event.client_payload.draft_id }}
         run: python check_approvals.py
-
-      - name: Save Telegram update position
-        run: |
-          git config user.name "reels-agent-bot"
-          git config user.email "actions@github.com"
-          git add .github/telegram_offset.txt
-          git diff --cached --quiet || git commit -m "chore: save Telegram update position"
-          git push
 
       - name: Restore YouTube authorization
         if: steps.check.outputs.approved == 'true'
@@ -62,6 +55,7 @@ jobs:
           RELEASE_VIDEO_URL: ${{ github.server_url }}/${{ github.repository }}/releases/download/${{ steps.check.outputs.draft_id }}/final.mp4
           DRAFT_ID: ${{ steps.check.outputs.draft_id }}
         run: python post_social.py
+        id: post
 
       - name: Delete successfully posted draft
         if: success() && steps.check.outputs.approved == 'true'
@@ -78,4 +72,5 @@ jobs:
           WORKFLOW_STATUS: ${{ job.status }}
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           PUBLISH: "true"
+          YOUTUBE_URL: ${{ steps.post.outputs.youtube_url }}
         run: python notify_telegram.py

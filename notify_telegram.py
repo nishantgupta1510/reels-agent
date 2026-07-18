@@ -13,11 +13,25 @@ def main():
 
     status = os.environ.get("WORKFLOW_STATUS", "unknown").upper()
     publish = os.environ.get("PUBLISH", "false") == "true"
-    mode = "YouTube upload" if publish else "draft generation"
     url = os.environ.get("WORKFLOW_URL", "")
-    text = f"Daily reels workflow: {status} ({mode})."
-    if url:
-        text += f"\n{url}"
+    yt_url = os.environ.get("YOUTUBE_URL", "")
+    
+    title = "video"
+    if publish and os.path.exists("output/approved/script.json"):
+        import json
+        try:
+            with open("output/approved/script.json") as f:
+                title = json.load(f).get("caption_title", "video")
+        except Exception:
+            pass
+
+    if publish and status == "SUCCESS":
+        text = f"✅ Posted! \"{title}\" is now live on YouTube.\n🔗 {yt_url}\n\n📊 Check the run: {url}"
+    else:
+        mode = "YouTube upload" if publish else "draft generation"
+        text = f"Daily reels workflow: {status} ({mode})."
+        if url:
+            text += f"\n{url}"
 
     response = requests.post(
         f"https://api.telegram.org/bot{token}/sendMessage",
