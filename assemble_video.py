@@ -90,16 +90,22 @@ def build_captions(word_timings: list, total_duration: float):
     for text, start, end in chunks:
         if end <= start:
             continue
+        txt = TextClip(
+            text,
+            fontsize=90,
+            color="white",
+            font=FONT_PATH,
+            stroke_color="black",
+            stroke_width=2,
+            method="caption",
+            size=(TARGET_W - 100, None),
+        )
         txt = (
-            TextClip(
-                text,
-                fontsize=80,
-                color="white",
-                font=FONT_PATH,
-                stroke_color="black",
-                stroke_width=4,
-                method="caption",
-                size=(TARGET_W - 100, None),
+            txt.on_color(
+                size=(txt.w + 60, txt.h + 40),
+                color=(0, 0, 0),
+                pos=("center", "center"),
+                col_opacity=0.7,
             )
             .set_position(("center", TARGET_H * 0.7))
             .set_start(start)

@@ -40,7 +40,7 @@ jobs:
           LLM_BASE_URL: ${{ vars.LLM_BASE_URL || secrets.LLM_BASE_URL }}
           LLM_MODEL: ${{ vars.LLM_MODEL || secrets.LLM_MODEL }}
           NICHE: ${{ vars.NICHE || secrets.NICHE }}
-          VIDEO_LENGTH_SECONDS: ${{ vars.VIDEO_LENGTH_SECONDS || secrets.VIDEO_LENGTH_SECONDS || '30' }}
+          VIDEO_LENGTH_SECONDS: ${{ vars.VIDEO_LENGTH_SECONDS || secrets.VIDEO_LENGTH_SECONDS || '55' }}
         run: python generate_script.py
 
       - name: Generate voiceover

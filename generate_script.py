@@ -25,7 +25,8 @@ load_dotenv()
 
 SYSTEM_PROMPT = """You are a short-form video scriptwriter for YouTube Shorts \
 and Instagram Reels. You write tight, high-retention scripts in Hindi (Devanagari \
-script). A scroll-stopping \
+script). Start with a surprising or counter-intuitive fact that most people \
+don't know. Use conversational Hindi, not textbook Hindi. A scroll-stopping \
 hook in the first line, punchy short sentences, a clear payoff, and a soft \
 call-to-action at the end. Output ONLY valid JSON, no markdown fences, no \
 commentary, matching exactly this schema:
@@ -41,9 +42,9 @@ commentary, matching exactly this schema:
 
 The "script" field is the full voiceover text, written to be read aloud in \
 about {seconds} seconds (roughly {words} words). "visual_keywords" are \
-generic, stock-footage-searchable terms (e.g. "ocean waves", "city traffic \
-night") that visually match the script's mood/content — avoid anything \
-copyrighted or brand-specific."""
+cinematic, scene-specific stock-footage search terms (e.g., "maglev train \
+japan aerial", "glowing neon city time lapse") that visually match the \
+script's mood/content — avoid boring generic terms or anything copyrighted."""
 
 
 def generate_script(niche: str, seconds: int = 30) -> dict:
@@ -101,7 +102,7 @@ def generate_script(niche: str, seconds: int = 30) -> dict:
 
 if __name__ == "__main__":
     niche = os.environ.get("NICHE") or "interesting science facts"
-    seconds = int(os.environ.get("VIDEO_LENGTH_SECONDS") or 30)
+    seconds = int(os.environ.get("VIDEO_LENGTH_SECONDS") or 55)
 
     result = generate_script(niche, seconds)
 
