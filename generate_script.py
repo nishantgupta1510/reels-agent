@@ -31,7 +31,7 @@ don't know. Use conversational Hindi, not textbook Hindi.
 Every script MUST begin exactly with: "एक राज़ बताता हूँ — जो शायद आपने कभी नहीं सुना होगा।"
 Every script MUST end exactly with: "ऐसे और राज़ जानने हों तो channel follow करना मत भूलिए!"
 
-A scroll-stopping hook in the first line, punchy short sentences, a clear payoff. \
+A scroll-stopping hook in the first line that triggers intense curiosity, shock, or fear. The hook MUST make the viewer stop scrolling immediately. Use punchy short sentences, high information density, and a clear payoff. \
 Output ONLY valid JSON, no markdown fences, no commentary, matching exactly this schema:
 
 {{
@@ -106,7 +106,10 @@ def generate_script(niche: str, seconds: int = 30) -> dict:
 
 
 if __name__ == "__main__":
-    niche = os.environ.get("NICHE") or "interesting science facts"
+    import random
+    niche_env = os.environ.get("NICHE") or "interesting science facts"
+    niche_list = [n.strip() for n in niche_env.split(",") if n.strip()]
+    niche = random.choice(niche_list)
     seconds = int(os.environ.get("VIDEO_LENGTH_SECONDS") or 55)
 
     result = generate_script(niche, seconds)

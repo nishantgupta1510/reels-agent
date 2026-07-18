@@ -65,13 +65,27 @@ def build_background(duration: float):
     if not segments:
         raise RuntimeError("All downloaded clips were empty or unreadable")
 
+    transition_times = []
+    current_time = 0.0
+    for seg in segments:
+        if current_time > 0:
+            transition_times.append(current_time)
+        current_time += seg.duration
+
     bg = concatenate_videoclips(segments, method="compose")
     if bg.duration < duration:
-        # A search can return only one short clip. Repeat the assembled
-        # background enough times to cover the complete voiceover.
         repeats = math.ceil(duration / bg.duration)
         bg = concatenate_videoclips([bg] * repeats, method="compose").subclip(0, duration)
-    return bg.subclip(0, duration)
+        
+        # Add repeated transitions
+        extra_transitions = []
+        for i in range(1, repeats):
+            offset = current_time * i
+            extra_transitions.extend([t + offset for t in transition_times])
+            extra_transitions.append(offset)
+        transition_times.extend(extra_transitions)
+        
+    return bg.subclip(0, duration), [t for t in transition_times if t < duration]
 
 
 
@@ -126,21 +140,35 @@ def main():
     with open("output/word_timings.json") as f:
         word_timings = json.load(f)
 
-    background = build_background(duration).set_audio(audio)
+    background, transition_times = build_background(duration)
+    background = background.set_audio(audio)
     captions = build_captions(word_timings, duration, speed_factor=SPEED_FACTOR)
 
     final = CompositeVideoClip([background, *captions], size=(TARGET_W, TARGET_H))
     final = final.set_duration(duration)
 
     os.makedirs("output", exist_ok=True)
+    audio_layers = [final.audio]
+    
+    # Mix Whoosh SFX at transitions
+    whoosh_path = "assets/music/whoosh.wav"
+    if os.path.exists(whoosh_path):
+        for t in transition_times:
+            whoosh = AudioFileClip(whoosh_path).set_start(t).volumex(0.4)
+            audio_layers.append(whoosh)
+
     # Mix Background Music if available
     import glob
     music_files = glob.glob("assets/music/*.wav")
+    music_files = [f for f in music_files if "whoosh" not in f]
     if music_files:
         import random
         track = AudioFileClip(random.choice(music_files)).subclip(0, final.duration)
         track = track.volumex(0.30)  # 30% volume
-        mixed = CompositeAudioClip([final.audio, track])
+        audio_layers.append(track)
+        
+    if len(audio_layers) > 1:
+        mixed = CompositeAudioClip(audio_layers)
         final = final.set_audio(mixed)
 
     # Add Raaz Brand Watermark
