@@ -131,12 +131,22 @@ def romanize_timings(word_timings: list) -> list:
     if not HAS_TRANSLITERATION:
         return word_timings
     roman = []
+    
+    # Custom dictionary for English loanwords and user preferences
+    dictionary = {
+        'strit': 'street', 'phud': 'food', 'phemas': 'famous', 'batar': 'butter',
+        'chikan': 'chicken', 'kanat': 'connaught', 'ples': 'place', 
+        'kachaudi': 'kachaudi', 'men': 'me', 'hain': 'hai', 'hon': 'ho',
+        'mat': 'maat', 'jaen': 'jayen', 'shaukin': 'shaukeen', 'asali': 'asli',
+        'hotal': 'hotal', 'svad': 'svad', 'jarur': 'jarur', 'namaste': 'namaste',
+        'sabako': 'sabko', 'jisaka': 'jiska', 'janate': 'jante', 'apane': 'aapne'
+    }
+
     for entry in word_timings:
         try:
-            # Get raw ITRANS (e.g. 'eka' for एक, 'sochA' for सोचा, 'mazedAra' for मज़ेदार)
+            # Get raw ITRANS
             raw = transliterate(entry["word"], sanscript.DEVANAGARI, sanscript.ITRANS)
             
-            # Post-processing cleanup for casual readability
             # 1. Remove trailing schwa (lowercase 'a') before lowercasing everything
             if len(raw) > 2 and raw.endswith('a') and raw[-2] not in 'aeiouAEIOU':
                 raw = raw[:-1]
@@ -154,6 +164,10 @@ def romanize_timings(word_timings: list) -> list:
             cleaned = re.sub(r'a+', 'a', cleaned)
             cleaned = re.sub(r'i+', 'i', cleaned)
             cleaned = re.sub(r'u+', 'u', cleaned)
+            
+            # 6. Apply dictionary overrides (perfect English spellings & schwas)
+            if cleaned in dictionary:
+                cleaned = dictionary[cleaned]
                 
             roman_word = cleaned.strip()
         except Exception:
