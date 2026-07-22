@@ -133,21 +133,26 @@ def romanize_timings(word_timings: list) -> list:
     roman = []
     for entry in word_timings:
         try:
-            # Get raw ITRANS
+            # Get raw ITRANS (e.g. 'eka' for एक, 'sochA' for सोचा)
             raw = transliterate(entry["word"], sanscript.DEVANAGARI, sanscript.ITRANS)
             
             # Post-processing cleanup for casual readability
-            # 1. Handle nasal sounds (Anusvara)
-            cleaned = re.sub(r'\.N|M', 'n', raw)
-            # 2. Lowercase everything to remove ITRANS mixed case (A, I, U, T, D, N)
-            cleaned = cleaned.lower()
-            # 3. Simplify vowels (aa -> a, ii -> i, uu -> u)
+            # 1. Remove trailing schwa (lowercase 'a'). We do this BEFORE lowercasing 
+            # so we don't accidentally delete long 'A' (which should become 'a').
+            # We keep it for very short words like 'na' or 'kya'.
+            if len(raw) > 2 and raw.endswith('a') and raw[-2] not in 'aeiouAEIOU':
+                raw = raw[:-1]
+                
+            # 2. Lowercase everything
+            cleaned = raw.lower()
+            
+            # 3. Handle nasal sounds (Anusvara)
+            cleaned = re.sub(r'\.n|m', 'n', cleaned)
+            
+            # 4. Simplify vowels (aa -> a, ii -> i, uu -> u)
             cleaned = re.sub(r'a+', 'a', cleaned)
             cleaned = re.sub(r'i+', 'i', cleaned)
             cleaned = re.sub(r'u+', 'u', cleaned)
-            # 4. Remove trailing 'a' (silent schwa) if preceded by a consonant, unless it's a small word like "kya"
-            if len(cleaned) > 3 and cleaned.endswith('a') and cleaned[-2] not in 'aeiou':
-                cleaned = cleaned[:-1]
                 
             roman_word = cleaned.strip()
         except Exception:
