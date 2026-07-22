@@ -167,7 +167,14 @@ def romanize_timings(word_timings: list) -> list:
             cleaned = re.sub(r'i+', 'i', cleaned)
             cleaned = re.sub(r'u+', 'u', cleaned)
             
-            # 6. Apply dictionary overrides (perfect English spellings & schwas)
+            # 6. Medial schwa deletion rule for natural Hindi pronunciation
+            # Drops the short 'a' in words like 'apane'->'apne', 'karana'->'karna', 'khelata'->'khelta'
+            old = ''
+            while old != cleaned:
+                old = cleaned
+                cleaned = re.sub(r'([aeiou])([^aeiou]+)a([^aeiou]+[aeiou])', r'\1\2\3', cleaned)
+            
+            # 7. Apply dictionary overrides for edge cases
             if cleaned in dictionary:
                 cleaned = dictionary[cleaned]
                 
