@@ -66,6 +66,9 @@ jobs:
       - name: Assemble video
         run: python assemble_video.py
 
+      - name: Generate thumbnail
+        run: python generate_thumbnail.py
+
       - name: Create compressed preview
         run: ffmpeg -i output/final.mp4 -vf scale=540:960 -crf 28 output/preview.mp4
 
@@ -80,7 +83,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create ${{ steps.draft.outputs.id }} \
-            output/final.mp4 output/script.json \
+            output/final.mp4 output/script.json output/thumbnail.jpg \
             --draft \
             --title "${{ steps.draft.outputs.id }}" \
             --notes "Private temporary storage for a pending Telegram review."

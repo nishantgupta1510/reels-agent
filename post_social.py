@@ -51,7 +51,7 @@ def get_youtube_client():
     return build("youtube", "v3", credentials=creds)
 
 
-def post_youtube(video_path: str, title: str, description: str, tags: list, privacy_status: str = "public"):
+def post_youtube(video_path: str, title: str, description: str, tags: list, privacy_status: str = "public", thumbnail_path: str = None):
     youtube = get_youtube_client()
     body = {
         "snippet": {
@@ -69,6 +69,18 @@ def post_youtube(video_path: str, title: str, description: str, tags: list, priv
     while response is None:
         status, response = request.next_chunk()
     print(f"YouTube upload complete: https://youtu.be/{response['id']}")
+    
+    if thumbnail_path and os.path.exists(thumbnail_path):
+        try:
+            print(f"Uploading thumbnail from {thumbnail_path}...")
+            youtube.thumbnails().set(
+                videoId=response["id"],
+                media_body=MediaFileUpload(thumbnail_path)
+            ).execute()
+            print("Thumbnail uploaded successfully.")
+        except Exception as e:
+            print(f"Warning: Failed to upload thumbnail (is your channel phone-verified?): {e}")
+
     return response["id"]
 
 
@@ -144,12 +156,14 @@ if __name__ == "__main__":
 
     description = meta["script"] + "\n\n" + " ".join(meta["hashtags"])
 
+    thumbnail_path = os.environ.get("THUMBNAIL_PATH")
     video_id = post_youtube(
         video_path,
         meta["caption_title"],
         description,
         [h.strip("#") for h in meta["hashtags"]],
         os.environ.get("YOUTUBE_PRIVACY_STATUS", "public"),
+        thumbnail_path
     )
     if os.environ.get("POST_INSTAGRAM", "false").lower() == "true":
         post_instagram(video_path, description)

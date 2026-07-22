@@ -109,22 +109,16 @@ def build_captions(word_timings: list, total_duration: float, speed_factor: floa
             continue
         txt = TextClip(
             text,
-            fontsize=90,
+            fontsize=110,
             color="white",
             font=FONT_PATH,
             stroke_color="black",
-            stroke_width=2,
+            stroke_width=5,
             method="caption",
             size=(TARGET_W - 100, None),
         )
         txt = (
-            txt.on_color(
-                size=(txt.w + 60, txt.h + 40),
-                color=(0, 0, 0),
-                pos=("center", "center"),
-                col_opacity=0.7,
-            )
-            .set_position(("center", TARGET_H * 0.7))
+            txt.set_position(("center", TARGET_H * 0.7))
             .set_start(start)
             .set_end(end)
         )
@@ -175,19 +169,21 @@ def main():
     if music_files:
         import random
         track = AudioFileClip(random.choice(music_files)).subclip(0, final.duration)
-        track = track.volumex(0.30)  # 30% volume
+        track = track.volumex(0.20)  # 20% volume
         audio_layers.append(track)
         
     if len(audio_layers) > 1:
         mixed = CompositeAudioClip(audio_layers)
         final = final.set_audio(mixed)
 
-    # Add Raaz Brand Watermark
+    # Add Raaz Brand Watermark (animated pulse)
     logo_path = "assets/logo.png"
     if os.path.exists(logo_path):
+        import math
         logo_clip = (
             ImageClip(logo_path)
             .set_duration(final.duration)
+            .resize(lambda t: 1 + 0.05 * math.sin(t * 3))
             .resize(width=180)
             .set_opacity(0.8)
             .set_position((40, TARGET_H - 140))

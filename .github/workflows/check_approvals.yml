@@ -48,6 +48,7 @@ jobs:
         env:
           VIDEO_PATH: output/approved/final.mp4
           SCRIPT_PATH: output/approved/script.json
+          THUMBNAIL_PATH: output/approved/thumbnail.jpg
           YOUTUBE_PRIVACY_STATUS: ${{ vars.YOUTUBE_PRIVACY_STATUS || secrets.YOUTUBE_PRIVACY_STATUS || 'public' }}
           POST_INSTAGRAM: ${{ vars.POST_INSTAGRAM || secrets.POST_INSTAGRAM || 'false' }}
           IG_BUSINESS_ACCOUNT_ID: ${{ secrets.IG_BUSINESS_ACCOUNT_ID }}

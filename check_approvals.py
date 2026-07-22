@@ -29,6 +29,9 @@ def main():
             os.makedirs("output/approved", exist_ok=True)
             video_ok = download_release_asset(draft_id, "final.mp4", "output/approved/final.mp4")
             meta_ok = download_release_asset(draft_id, "script.json", "output/approved/script.json")
+            # Thumbnail is optional (older drafts might not have it)
+            download_release_asset(draft_id, "thumbnail.jpg", "output/approved/thumbnail.jpg")
+            
             if video_ok and meta_ok:
                 approved = True
             else:
