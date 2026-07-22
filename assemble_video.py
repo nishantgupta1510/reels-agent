@@ -89,7 +89,10 @@ def build_background(duration: float):
 
 
 
-FONT_PATH = os.path.join(os.path.dirname(__file__), "fonts", "NotoSansDevanagari-Bold.ttf")
+FONT_PATH = os.path.join(os.path.dirname(__file__), "fonts", "DejaVuSans-Bold.ttf")
+
+# Rotating caption colors for visual engagement (Raaz: dramatic/intense palette)
+CAPTION_COLORS = ["#FFFFFF", "#FFD700", "#FF4500", "#00FFFF", "#FF69B4", "#ADFF2F"]
 
 
 def build_captions(word_timings: list, total_duration: float, speed_factor: float = 1.15):
@@ -104,21 +107,22 @@ def build_captions(word_timings: list, total_duration: float, speed_factor: floa
         chunks.append((text, start, min(end, total_duration)))
 
     caption_clips = []
-    for text, start, end in chunks:
+    for idx, (text, start, end) in enumerate(chunks):
         if end <= start:
             continue
+        color = CAPTION_COLORS[idx % len(CAPTION_COLORS)]
         txt = TextClip(
             text,
-            fontsize=110,
-            color="white",
+            fontsize=105,
+            color=color,
             font=FONT_PATH,
             stroke_color="black",
-            stroke_width=5,
+            stroke_width=6,
             method="caption",
-            size=(TARGET_W - 100, None),
+            size=(TARGET_W - 80, None),
         )
         txt = (
-            txt.set_position(("center", TARGET_H * 0.7))
+            txt.set_position(("center", TARGET_H * 0.68))
             .set_start(start)
             .set_end(end)
         )
