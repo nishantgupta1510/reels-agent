@@ -47,10 +47,10 @@ def generate_thumbnail():
     draw = ImageDraw.Draw(img)
     
     # Try to use the same font as the video
-    font_path = "assets/fonts/bold.ttf"
+    font_path = "fonts/bold.ttf"
     if not os.path.exists(font_path):
         import glob
-        fonts = glob.glob("assets/fonts/*.ttf")
+        fonts = glob.glob("fonts/*.ttf")
         font_path = fonts[0] if fonts else None
         
     try:
