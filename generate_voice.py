@@ -139,7 +139,9 @@ def romanize_timings(word_timings: list) -> list:
         'kachaudi': 'kachaudi', 'men': 'me', 'hain': 'hai', 'hon': 'ho',
         'mat': 'maat', 'jaen': 'jayen', 'shaukin': 'shaukeen', 'asali': 'asli',
         'hotal': 'hotal', 'svad': 'svad', 'jarur': 'jarur', 'namaste': 'namaste',
-        'sabako': 'sabko', 'jisaka': 'jiska', 'janate': 'jante', 'apane': 'aapne'
+        'sabako': 'sabko', 'jisaka': 'jiska', 'janate': 'jante', 'apane': 'aapne',
+        'apako': 'apko', 'itana': 'itna', 'janane': 'janne', 'karana': 'karna',
+        'bat': 'baat', 'kanal': 'channel', 'phalau': 'follow'
     }
 
     for entry in word_timings:
@@ -154,8 +156,8 @@ def romanize_timings(word_timings: list) -> list:
             # 2. Handle ITRANS Anusvara (M or .N) safely before lowercase
             raw = raw.replace('.N', 'n').replace('M', 'n')
             
-            # 3. Remove ITRANS nukta dots (e.g. .D for ड़ -> D)
-            raw = raw.replace('.', '')
+            # 3. Remove ITRANS nukta dots (e.g. .D for ड़ -> D) and Dandas (|)
+            raw = raw.replace('.', '').replace('|', '')
                 
             # 4. Lowercase everything
             cleaned = raw.lower()
