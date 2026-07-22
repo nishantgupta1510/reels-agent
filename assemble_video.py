@@ -149,9 +149,17 @@ def main():
     with open("output/word_timings.json") as f:
         word_timings = json.load(f)
 
+    # Load Romanized words if available, fall back to raw word timings
+    roman_timings_path = "output/roman_word_timings.json"
+    if os.path.exists(roman_timings_path):
+        with open(roman_timings_path) as f:
+            roman_timings = json.load(f)
+    else:
+        roman_timings = word_timings
+
     background, transition_times = build_background(duration)
     background = background.set_audio(audio)
-    captions = build_captions(word_timings, duration, speed_factor=SPEED_FACTOR)
+    captions = build_captions(roman_timings, duration, speed_factor=SPEED_FACTOR)
 
     final = CompositeVideoClip([background, *captions], size=(TARGET_W, TARGET_H))
     final = final.set_duration(duration)

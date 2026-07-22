@@ -21,6 +21,14 @@ import edge_tts
 import requests
 from dotenv import load_dotenv
 
+try:
+    from indic_transliteration import sanscript
+    from indic_transliteration.sanscript import transliterate
+    HAS_TRANSLITERATION = True
+except ImportError:
+    HAS_TRANSLITERATION = False
+    print("Warning: indic-transliteration not installed. Roman captions will use Devanagari fallback.")
+
 load_dotenv()
 
 # Good default voices — browse more with: `edge-tts --list-voices`
@@ -116,6 +124,38 @@ def synthesize_elevenlabs(text: str, out_path: str) -> list:
     return word_timings
 
 
+import re
+
+def romanize_timings(word_timings: list) -> list:
+    """Transliterate a list of word-timing dicts from Devanagari to natural Roman script."""
+    if not HAS_TRANSLITERATION:
+        return word_timings
+    roman = []
+    for entry in word_timings:
+        try:
+            # Get raw ITRANS
+            raw = transliterate(entry["word"], sanscript.DEVANAGARI, sanscript.ITRANS)
+            
+            # Post-processing cleanup for casual readability
+            # 1. Handle nasal sounds (Anusvara)
+            cleaned = re.sub(r'\.N|M', 'n', raw)
+            # 2. Lowercase everything to remove ITRANS mixed case (A, I, U, T, D, N)
+            cleaned = cleaned.lower()
+            # 3. Simplify vowels (aa -> a, ii -> i, uu -> u)
+            cleaned = re.sub(r'a+', 'a', cleaned)
+            cleaned = re.sub(r'i+', 'i', cleaned)
+            cleaned = re.sub(r'u+', 'u', cleaned)
+            # 4. Remove trailing 'a' (silent schwa) if preceded by a consonant, unless it's a small word like "kya"
+            if len(cleaned) > 3 and cleaned.endswith('a') and cleaned[-2] not in 'aeiou':
+                cleaned = cleaned[:-1]
+                
+            roman_word = cleaned.strip()
+        except Exception:
+            roman_word = entry["word"]
+        roman.append({**entry, "word": roman_word})
+    return roman
+
+
 def main():
     with open("output/script.json") as f:
         script_data = json.load(f)
@@ -131,6 +171,11 @@ def main():
 
     with open("output/word_timings.json", "w") as f:
         json.dump(word_timings, f, indent=2)
+
+    # Also produce romanized timings for on-screen captions
+    roman_timings = romanize_timings(word_timings)
+    with open("output/roman_word_timings.json", "w") as f:
+        json.dump(roman_timings, f, indent=2)
 
     print(f"Voice saved to output/voice.mp3 via '{provider}' ({len(word_timings)} words timed)")
 
