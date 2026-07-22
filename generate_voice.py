@@ -133,23 +133,24 @@ def romanize_timings(word_timings: list) -> list:
     roman = []
     for entry in word_timings:
         try:
-            # Get raw ITRANS (e.g. 'eka' for एक, 'sochA' for सोचा)
+            # Get raw ITRANS (e.g. 'eka' for एक, 'sochA' for सोचा, 'mazedAra' for मज़ेदार)
             raw = transliterate(entry["word"], sanscript.DEVANAGARI, sanscript.ITRANS)
             
             # Post-processing cleanup for casual readability
-            # 1. Remove trailing schwa (lowercase 'a'). We do this BEFORE lowercasing 
-            # so we don't accidentally delete long 'A' (which should become 'a').
-            # We keep it for very short words like 'na' or 'kya'.
+            # 1. Remove trailing schwa (lowercase 'a') before lowercasing everything
             if len(raw) > 2 and raw.endswith('a') and raw[-2] not in 'aeiouAEIOU':
                 raw = raw[:-1]
                 
-            # 2. Lowercase everything
+            # 2. Handle ITRANS Anusvara (M or .N) safely before lowercase
+            raw = raw.replace('.N', 'n').replace('M', 'n')
+            
+            # 3. Remove ITRANS nukta dots (e.g. .D for ड़ -> D)
+            raw = raw.replace('.', '')
+                
+            # 4. Lowercase everything
             cleaned = raw.lower()
             
-            # 3. Handle nasal sounds (Anusvara)
-            cleaned = re.sub(r'\.n|m', 'n', cleaned)
-            
-            # 4. Simplify vowels (aa -> a, ii -> i, uu -> u)
+            # 5. Simplify vowels (aa -> a, ii -> i, uu -> u)
             cleaned = re.sub(r'a+', 'a', cleaned)
             cleaned = re.sub(r'i+', 'i', cleaned)
             cleaned = re.sub(r'u+', 'u', cleaned)
